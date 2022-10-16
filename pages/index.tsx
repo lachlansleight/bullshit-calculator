@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Layout from "components/layout/Layout";
 import SimSettings from "components/SimSettings";
 import { SimulationSettings } from "lib/types";
@@ -9,6 +9,7 @@ const HomePage = (): JSX.Element => {
         maxIterations: 50000,
         numAttempts: 10,
         successChance: 0.5,
+        customCode: "",
     });
 
     const [iteration, setIteration] = useState(0);
@@ -18,20 +19,36 @@ const HomePage = (): JSX.Element => {
         setResults(new Array(settings.numAttempts + 1).fill(0));
     }, [settings]);
 
+    const runSim = useCallback(() => {
+        if (!settings.customCode) {
+            let successes = 0;
+            for (let i = 0; i < settings.numAttempts; i++) {
+                if (Math.random() < settings.successChance) successes++;
+            }
+            return successes;
+        } else {
+            try {
+                const fn = eval(settings.customCode);
+                return fn();
+            } catch {
+                return 0;
+            }
+        }
+    }, [settings]);
+
     useAnimationFrame(() => {
         if (iteration >= settings.maxIterations) return;
         setIteration(cur => cur + 500);
         setResults(cur => {
             for (let j = 0; j < 500; j++) {
-                let successes = 0;
-                for (let i = 0; i < settings.numAttempts; i++) {
-                    if (Math.random() < settings.successChance) successes++;
-                }
-                cur[successes]++;
+                if (iteration + j > settings.maxIterations) break;
+                const successes = runSim();
+                if (!cur[successes]) cur[successes] = 1;
+                else cur[successes]++;
             }
             return cur;
         });
-    }, [settings, iteration]);
+    }, [settings, iteration, runSim]);
 
     return (
         <Layout>
